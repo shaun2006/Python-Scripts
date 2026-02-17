@@ -5,39 +5,55 @@ import argparse
 def parse_vcf(vcf_file):
     contacts = []
 
-    with open(vcf_file, 'r', encoding='utf-8') as file:
+    with open(vcf_file, "r", encoding="utf-8") as file:
         contact = {}
 
         for line in file:
             line = line.strip()
 
-            if line.startswith("BEGIN:VCARD"):
-                contact = {}
+            if not line:
+                continue
 
-            elif line.startswith("FN:"):
-                contact["Full Name"] = line.replace("FN:", "")
+            parts = line.split(":", 1)
+            if len(parts) != 2:
+                continue
 
-            elif line.startswith("TEL"):
-                phone = line.split(":")[-1]
-                contact.setdefault("Phone Numbers", []).append(phone)
+            field, value = parts
+            field_name = field.split(";")[0]  # remove metadata like TEL;TYPE=CELL
 
-            elif line.startswith("EMAIL"):
-                email = line.split(":")[-1]
-                contact.setdefault("Emails", []).append(email)
+            match field_name:
+                case "BEGIN":
+                    contact = {}
 
-            elif line.startswith("ORG:"):
-                contact["Organization"] = line.replace("ORG:", "")
+                case "FN":
+                    contact["Full Name"] = value
 
-            elif line.startswith("ADR"):
-                address = line.split(":")[-1].replace(";", " ")
-                contact["Address"] = address
+                case "TEL":
+                    contact.setdefault("Phone Numbers", []).append(value)
 
-            elif line.startswith("END:VCARD"):
-                contact["Phone Numbers"] = ", ".join(contact.get("Phone Numbers", []))
-                contact["Emails"] = ", ".join(contact.get("Emails", []))
-                contacts.append(contact)
+                case "EMAIL":
+                    contact.setdefault("Emails", []).append(value)
+
+                case "ORG":
+                    contact["Organization"] = value
+
+                case "ADR":
+                    contact["Address"] = value.replace(";", " ")
+
+                case "END":
+                    contact["Phone Numbers"] = ", ".join(
+                        contact.get("Phone Numbers", [])
+                    )
+                    contact["Emails"] = ", ".join(
+                        contact.get("Emails", [])
+                    )
+                    contacts.append(contact)
+
+                case _:
+                    pass
 
     return contacts
+
 
 
 def main():
@@ -54,9 +70,10 @@ def main():
     df = pd.DataFrame(contacts)
     df.to_excel(output_file, index=False)
 
-    print(f"✅ Conversion complete! Saved as {output_file}")
+    print(f"Conversion complete! Saved as {output_file}")
 
 
 if __name__ == "__main__":
     main()
+
 
